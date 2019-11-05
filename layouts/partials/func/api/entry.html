@@ -1,0 +1,102 @@
+{{/*
+  Parses an entry's data before.
+
+  @author @regisphilibert
+
+  @context Page (.)
+
+  @access private
+
+  @return Map
+          - String (.title)
+          - String (.section)
+          - Unix (.unix_date)
+          - String (.string_date)
+          - String (.content)
+          - String (.description)
+          - String (.objectID)
+          - String (.url)
+  @example
+   {{ $entry := partial "data/transformers/search" . }}
+
+*/}}
+
+{{/* We use Scratch to dynamically generate Maps, as Hugo's `merge` is considerably slower. */}}
+{{ $s := newScratch }}
+{{ $s.Add "item" dict }}
+
+
+{{/* Process Content. */}}
+{{ $content := false }}
+{{ with .Content }}
+  {{/* We use Plain as it is the content strips of HTML */}}
+  {{ $content = $.Plain }}
+{{ end }}
+
+{{/* As some content files uses `.Params.content_blocks` for their content, 
+  we use the code below to populate the content with each block's copy */}}
+{{ with .Params.content_blocks }}
+  {{ range $index, $block := where . ".template" "block-text" }}
+    {{ if not $index }}
+      {{ $content = .copy | markdownify | plainify }}
+    {{ else }}
+      {{ $content = printf "%s %s" $content (.copy | markdownify | plainify) }}
+    {{ end }}
+  {{ end }}
+{{ end }}
+
+{{ with $content }}
+
+  {{/* We replace small common words like the, for, and to light up the entry's kb. 
+  TODO: Add new regex for other languages's "smallWords" */}}
+  {{ $englishSmallWordRegex := "(?m)(?i)(?s:\\ba\\b|\\band\\b|\\bagain\\b|\\bin\\b|\\bto\\b|\\bis\\b|\\bno\\b|\\bor\\b|\\bthis\\b|\\bwell\\b|\\byes\\b|\\bthe\\b|\\bthere\\b|\\bthese\\b|\\bthen\\b\\bfor\\b)"}}
+  {{ $content = replaceRE $englishSmallWordRegex "" $content }}
+
+  {{/* We remove linebreaks char added by Forestry to Front Matter */}}
+  {{ $content = replace $content "\n" "" }}
+
+  {{/* Turn this on if copy needs to be truncated */}}
+  {{ if false }}
+    {{ $content = $content | truncate 8000 }}
+  {{ end }}
+{{ end }}
+
+
+{{/* Process the description */}}
+{{ $description := false }}
+{{ with .Description }}
+  {{ $description = . | plainify }}
+  {{/* We remove linebreaks char added by Forestry to Front Matter */}}
+  {{ $description = replace $description "\n" "" }}
+{{ end }}  
+
+{{/* Consistent key/value pairs */}}
+{{ $s.SetInMap "item" "section" $.Section }}
+{{ $s.SetInMap "item"  "lang" ($.Lang) }}
+{{ $s.SetInMap "item" "title" $.Title }}
+{{ $s.SetInMap "item" "url" $.RelPermalink }}
+{{ $s.SetInMap "item" "section" $.Section }}
+{{/* Conditional key/value pairs */}}
+{{ with .Date }}
+  {{ $s.SetInMap "item" "string_date" (.Format "2006-01-02") }}
+  {{ $s.SetInMap "item" "unix_date" .Unix }}
+{{ end }}
+
+{{ with $description }}
+  {{ $s.SetInMap "item" "description" . }}
+{{ end }}
+
+{{ with $content }}
+  {{ $s.SetInMap "item" "content" . }}
+{{ end }}
+
+{{/* Unique ID
+  If index lists all pages (from several languages) Hugo could fail to produce unique IDs,
+  we therefor produce ourselves by "hashing the language and the filepath */}}
+{{ $objectID := printf "%s_%s" $.Lang $.File.Path }}
+{{ $s.SetInMap "item"  "objectID" (md5 $objectID) }}
+
+
+{{ return $s.Get "item" }}
+
+
