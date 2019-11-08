@@ -1,0 +1,17 @@
+{{ $entries := slice }}
+{{ $paginator := .Paginate .Pages.ByDate.Reverse 6 }}
+{{ $pagi_data := dict }}
+
+{{ with $paginator.Next }}
+  {{ $pagi_data = merge $pagi_data (dict "next" .URL) }}
+{{ end }}
+
+{{ with $paginator.Prev }}
+  {{ $pagi_data = merge $pagi_data (dict "prev" .URL) }}
+{{ end }}
+
+{{ range $paginator.Pages }}
+  {{ $entry := partialCached "func/api/entry" . .File.UniqueID }}
+  {{ $entries = append $entries (slice $entry) }}
+{{ end }}
+{{ dict "paginator" $pagi_data "entries" (sort $entries "date" "desc") | jsonify }}

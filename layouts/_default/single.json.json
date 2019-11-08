@@ -1,0 +1,1 @@
+{{ partialCached "func/api/entry" . .File.UniqueID | jsonify }}

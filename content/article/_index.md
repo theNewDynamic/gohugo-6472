@@ -1,7 +1,8 @@
 ---
 title: "Blog"
 menu: main
-outputs:
-  - HTML
-  - JSON
+cascade:
+  outputs:
+    - HTML
+    - JSON
 ---
